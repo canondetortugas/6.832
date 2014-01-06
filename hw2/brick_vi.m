@@ -113,6 +113,10 @@ for i=1:T/dt
     x = x + dynamics(x,u).*dt;
 end
 
+figure;
+scatter(xtraj(1, :), xtraj(2, :), 5, jet(length(xtraj)));
+title('Phase Plot'); xlabel('x'); ylabel('xdot');
+
 end % end of brick_vi
 
 % ==========================================================
@@ -203,8 +207,14 @@ end
 function C = cost(X,u)
     C = lqr_cost(X,u);
     %C = min_time_cost(X,u);
+    %C = limit_cycle_cost(X,u);
 end
 
+% The optimal policy for this cost function is a bit pathological
+% in that the switching surface, due to discretization, has finite
+% area and in this area the optimal policy is u=0; In the
+% analytical minimum time solution the optimal policy is always at
+% either -1 or 1;
 function C = min_time_cost(X, u)
     c1 = abs(X(1,:)) < 0.05;
     c2 = abs(X(2,:)) < 0.05;
@@ -212,9 +222,17 @@ function C = min_time_cost(X, u)
     C = ~(c1 & c2);
 end
 
+% Runs into problems when Q is small, even when R is smaller.
 function C = lqr_cost(X, u)
     [Q,R] = get_QR;
     C = 0.5*( [Q(1,1), Q(2,2)]*(X.^2) + R*u.^2);
+end
+
+% This cost is designed such that the optimal trajectory is a
+% stable limit cycle. The limit cycle we solve for actually seems
+% to gain energy. I'm not sure if this is due to error in numerical integration;
+function C = limit_cycle_cost(X, u)
+    C = ~(abs((X(1, :) + u)) < 0.05);
 end
 
 % =========================================================
