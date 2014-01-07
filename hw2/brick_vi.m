@@ -61,7 +61,7 @@ C = reshape(cost(S,A),ns,na);
 
 % Setup value iteration (you shouldn't need to change this)
 J = zeros(ns,1); % arbitrary initialization
-converged  = 0.1; % value converged threshold
+converged  = 0.3; % value converged threshold
 gamma = 0.99; % discount factor
 iter = 1; err = 1e6;
 
@@ -108,14 +108,14 @@ for i=1:T/dt
 % =====================================================================    
     
     if (mod(i,disp_dts)==0)
-        draw((i-1)*dt,x);
+        draw((i-1)*dt,x, xtraj);
     end
     x = x + dynamics(x,u).*dt;
 end
 
-figure;
-scatter(xtraj(1, :), xtraj(2, :), 5, jet(length(xtraj)));
-title('Phase Plot'); xlabel('x'); ylabel('xdot');
+%figure;
+%scatter(xtraj(1, :), xtraj(2, :), 5, jet(length(xtraj)));
+%title('Phase Plot'); xlabel('x'); ylabel('xdot'); % 
 
 end % end of brick_vi
 
@@ -205,9 +205,9 @@ end
 
 % Instantaneous cost
 function C = cost(X,u)
-    C = lqr_cost(X,u);
-    %C = min_time_cost(X,u);
-    %C = limit_cycle_cost(X,u);
+C = lqr_cost(X,u);
+%    C = min_time_cost(X,u);             % 
+%C = limit_cycle_cost(X,u);
 end
 
 % The optimal policy for this cost function is a bit pathological
@@ -275,7 +275,7 @@ end
 % ==============================================================
 % This is the draw function.
 % ==============================================================
-function draw(t,x)
+function draw(t,x, xtraj)
 
 persistent hFig blockx blocky;
 
@@ -289,6 +289,8 @@ end
 figure(hFig);
 clf;
 
+subplot(2,1,1);
+
 % draw the mass
 brickcolor=[.75 .6 .5];
 fill(blockx+repmat(x(1),1,5),blocky,brickcolor);
@@ -296,7 +298,8 @@ hold on
 
 faintline=[.6 .8 .65]*1.1;
 plot(min(blockx)+[0 0],[-5 5],'k:','Color',faintline);
-plot(max(blockx)+[0 0],[-5 5],'k:','Color',faintline);
+plot(max(blockx)+[0 0],[-5 5],'k:','Color', ...
+                     faintline);
 
 % draw the ground
 line([-5, 5], [0, 0],'Color',[.3 .5 1],'LineWidth',1);
@@ -304,6 +307,9 @@ axis([-5 5 -1 2]);
 %grid on
 axis equal;
 title(['t = ', num2str(t)]);
+
+subplot(2,1,2);
+scatter(xtraj(1, :), xtraj(2, :), 5, 'k');
 
 drawnow;
 end
