@@ -1,14 +1,3 @@
-% ======================================================================
-% This function implements the value iteration algorithm for the brick.
-% It returns the optimal value function J and policy PI.
-% - Rick
-%
-% You need to implement:
-% 1) lqr regulator task w/ discrete actions
-% 3) oscillating brick task
-% 2) lqr regulator task w/ continuous actions
-% ======================================================================
-
 function [J,PI] = brick_vi
 global dt;
 
@@ -61,15 +50,23 @@ C = reshape(cost(S,A),ns,na);
 
 % Setup value iteration (you shouldn't need to change this)
 J = zeros(ns,1); % arbitrary initialization
-converged  = 0.3; % value converged threshold
+epsilon  = 0.01; % value converged threshold
 gamma = 0.99; % discount factor
 iter = 1; err = 1e6;
 
 % Iterate the value estimate
-
-% USE THE VALUE ITERATION UPDATE GIVEN HERE FOR PARTS a-c. FOR PART d, YOU
-% WILL NEED TO MODIFY THIS UPDATE TO USE CONTINUOUS ACTIONS.
-while (err > converged)
+% Gamma and epsilon are used for approximating the optimal cost
+% function. Using this algorithm ensures that the optimal policy
+% and the approximation differ by at most the 
+% "bellman residual":  2*epsilon*gamma/(1 - gamma) at any given state.
+while (err > epsilon)
+    % This is a pretty complicated line. The quantity being
+    % multiplied by gamma is a matrix where the element at (i,j)
+    % is the expected cost of taking action j in state i. Taking
+    % the min over dimension 2 (the action dimension) gives us
+    % (ns x 1) vectors Jnew and PI. The ith element of Jnew is the
+    % optimal cost for state i and the ith element of PI is the
+    % index of the optimal action to take at state i
     [Jnew, PI] = min(C + gamma*reshape(sum(P.*J(Pi),1),ns,na),[],2);
     err = max(abs(Jnew-J));
     disp(['iteration = ',num2str(iter),' ; max_err = ',num2str(err)]);
@@ -100,6 +97,9 @@ for i=1:T/dt
     % FOR PART d, MAKE USE OF CONTINOUS ACTIONS INSTEAD
     % OF THE INTERPOLATED DISCRETE ACTIONS GIVEN HERE.
     [ind,coef] = volumetric_interp(s,x,q_bins,qdot_bins);
+
+    % Optimal policy for each state we could be in, weighted by the
+    % probability that we are in that state
     u = sum(coef.*PI(ind),1);
     
 % === HINT ============================================================
@@ -128,6 +128,10 @@ end % end of brick_vi
 % Sn: the states to interpolate for
 % [q-bins, qdot_bins]: the bins used to create the mesh
 % ==========================================================
+% Pi: Each column represents the four discretized states whose
+% volume a given state landed in after a given action was performed
+% P: Each columen represents the probabilities for the four states
+% in Pi
 function [Pi,P] = volumetric_interp(s,Sn,q_bins,qdot_bins)
 ns = size(Sn,2);
 Pi = zeros(4,ns);
@@ -205,8 +209,9 @@ end
 
 % Instantaneous cost
 function C = cost(X,u)
-C = lqr_cost(X,u);
-%    C = min_time_cost(X,u);             % 
+%C = ones(1,length(X));                 
+%C = lqr_cost(X,u);                    
+C = min_time_cost(X,u);
 %C = limit_cycle_cost(X,u);
 end
 
@@ -219,7 +224,7 @@ function C = min_time_cost(X, u)
     c1 = abs(X(1,:)) < 0.05;
     c2 = abs(X(2,:)) < 0.05;
     
-    C = ~(c1 & c2);
+    C = ~(c1 & c2);                     
 end
 
 % Runs into problems when Q is small, even when R is smaller.
