@@ -28,12 +28,15 @@ function w = cartpole_snopt()
                                          iGfun, jGvar, 'cartpolefun');
 
     snset('Defaults');
-
+    
     % playback the learned policy
     x = [0 0 0 0]';
+    control_stdev = 0;
+    xtraj = x;
     for i=1:N
         draw(x, (i-1)*dt);
-        x = x + dynamics(x,alpha(i)).*dt;
+        x = x + dynamics(x,alpha(i) + randn(1)*control_stdev).*dt;
+        xtraj = [xtraj, x];
     end
 
     [J,dJdalpha] = cartpolefun(alpha);
@@ -44,6 +47,20 @@ function w = cartpole_snopt()
     plot([1:length(alpha)]*dt, alpha);
     xlabel('t'); ylabel('\pi_{\alpha{}}(t)');
     title('Optimal Policy');
+    
+    figure(24);
+    subplot(2,1,1);
+    hold on;
+    plot(xtraj(1,:),xtraj(3,:), 'r'); xlabel('x'); ylabel('xdot');
+    title('Trajectories');
+    legend('Target', 'Actual');
+    subplot(2,1,2);
+    hold on;
+    plot(xtraj(2,:),xtraj(4,:), 'r'); xlabel('theta'); ...
+        ylabel('thetadot');
+    legend('Target', 'Actual');
+
+    
 
 end
 
