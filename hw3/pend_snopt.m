@@ -5,7 +5,7 @@ m=1; g = 9.8; l = 1; I = m*l*l; b = 0.1;
 xdes = [pi 0]'; % the desired final state
 
 snsummary off;
-snseti     ('Major Iteration limit', 10000);
+snseti     ('Major Iteration limit', 100);
 
 %don't worry if SNOPT says "Failed to find optimal solution" when it
 %terminates.  So long as the error has dropped below this tolerance,
@@ -36,6 +36,11 @@ end
 [J,dJdalpha] = pendfun(alpha);
 fprintf('\nCost of the found solution: %3.2f\n\n',J)
 fprintf('Final state: [ %f, %f ].\n', x(1), x(2));
+
+figure; hold on;
+plot([1:length(alpha)]*dt, alpha);
+xlabel('t'); ylabel('\pi_{\alpha{}}(t)');
+title('Optimal Policy');
 
 end
 
