@@ -5,12 +5,14 @@ m=1; g = 9.8; l = 1; I = m*l*l; b = 0.1;
 xdes = [pi 0]'; % the desired final state
 
 snsummary off;
-snseti     ('Major Iteration limit', 100);
+snseti     ('Major Iteration limit', 10000);
 
 %don't worry if SNOPT says "Failed to find optimal solution" when it
 %terminates.  So long as the error has dropped below this tolerance,
 %the solution is "optimal enough" for our purposes.
 snsetr     ('Major optimality tolerance',1e-4);
+
+snprint('pend_snopt.log');
 
 [alpha,alphalow,alphaupp,alphamul,alphastate,Flow,Fupp,Fmul,Fstate,ObjAdd,ObjRow,    ...
  A,iAfun,jAvar,iGfun,jGvar] = penddata;
@@ -33,6 +35,7 @@ end
 
 [J,dJdalpha] = pendfun(alpha);
 fprintf('\nCost of the found solution: %3.2f\n\n',J)
+fprintf('Final state: [ %f, %f ].\n', x(1), x(2));
 
 end
 
