@@ -2,6 +2,9 @@ function w = cartpole_snopt()
 % pendulum parameters
     global mc mp g l xdes N;
     % mc = 10; mp = 1; l = 0.5; g = 9.8;
+
+    % NOTE: This function is broken if parameters other than
+    % gravity are changed
     mc = 1; mp = 1; l = 0.5; g = 1;
     T = 1.5;
     dt=.01;
@@ -29,38 +32,73 @@ function w = cartpole_snopt()
 
     snset('Defaults');
     
-    % playback the learned policy
+
+    % Play back the policy. We will use this trajectory to create
+    % an LQR stabilizer
     x = [0 0 0 0]';
-    control_stdev = 0;
-    xtraj = x;
+    xtape = x;
     for i=1:N
-        draw(x, (i-1)*dt);
-        x = x + dynamics(x,alpha(i) + randn(1)*control_stdev).*dt;
+        control = alpha(i);
+        x = x + dynamics(x, control).*dt;
+        xtape = [xtape, x];
+    end
+
+    %  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %  Build LQR stabilizer
+    %  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    Q = 50*eye(4,4).*dt;
+    R = 0.01*eye(1,1).*dt;
+
+    [A, B] = linearize_cartpole_around_sequence(xtape, alpha');
+    [K, S] = lqr_stabilizer(A, B, Q, R, dt);
+
+    % keyboard;
+
+    % Simulate the policy with noise
+    control_stdev = 4;
+    
+    x = [0 0 0 0]';
+    z = x;
+    xtraj = x;
+    ztraj = z;
+    ctraj = [];
+    for i=1:N
+        draw(z, (i-1)*dt);
+        zerr = z - xtape(:,i);
+        control = alpha(i) - K{i}*zerr;
+        ctraj = [ctraj, control];
+        e = randn(1)*control_stdev;                         % Gaussian RV
+        x = x + dynamics(x, alpha(i) + e).*dt;
+        z = z + dynamics(z, control + e).*dt;
         xtraj = [xtraj, x];
+        ztraj = [ztraj, z];
     end
 
     [J,dJdalpha] = cartpolefun(alpha);
-    fprintf('\nCost of the found solution: %3.2f\n\n',J)
-    fprintf('Final state: [ %f, %f ].\n', x(1), x(2));
+    fprintf('\nCost of the found solution: %3.2f\n',J)
+    fprintf('Final stabilized state: [ %f, %f ].\n\n', z(1), z(2));
 
     figure; hold on;
-    plot([1:length(alpha)]*dt, alpha);
+    plot([1:length(alpha)]*dt, alpha, 'b');
+    plot([1:length(alpha)]*dt, ctraj, 'g');
     xlabel('t'); ylabel('\pi_{\alpha{}}(t)');
-    title('Optimal Policy');
+    title('Policies'); legend('Open Loop', 'Stabilized');
     
     figure(24);
     subplot(2,1,1);
     hold on;
-    plot(xtraj(1,:),xtraj(3,:), 'r'); xlabel('x'); ylabel('xdot');
+    plot(xtraj(1,:),xtraj(3,:), 'r'); 
+    plot(ztraj(1,:),ztraj(3,:), 'g'); 
+    xlabel('x'); ylabel('xdot');
     title('Trajectories');
-    legend('Target', 'Actual');
+    legend('Target', 'Unstabilized', 'Stabilized');
     subplot(2,1,2);
     hold on;
-    plot(xtraj(2,:),xtraj(4,:), 'r'); xlabel('theta'); ...
+    plot(xtraj(2,:),xtraj(4,:), 'r'); 
+    plot(ztraj(2,:),ztraj(4,:), 'g'); 
+    xlabel('theta'); ...
         ylabel('thetadot');
-    legend('Target', 'Actual');
-
-    
+    legend('Target', 'Unstabilized', 'Stabilized');
 
 end
 
@@ -147,4 +185,57 @@ function draw(x,t)
 
     axis image; axis([-2.5 2.5 -1.5*l 1.5*l]);
     drawnow;
+end
+
+% NOTE: These expressions were computed with mc = mp =1, l = 0.5
+% They won't work if these parameters are changed
+function [A, B] = linearize_cartpole_around_sequence(xtraj, utraj)
+% parameters
+    global mc mp l g;
+
+
+    % Discard the final x point (where we end up after the final
+    % control input is applied)
+    for idx = 1:(length(xtraj)-1)
+        
+        x = xtraj(:,idx);
+        u = utraj(:,idx);
+        
+        % Sin and cosine
+        s = sin(x(2)); c = cos(x(2));
+        thetadot = x(4);
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %Give the gradients of the dynamics with respect to 
+        % a particular state and action
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        df3dthetadot = thetadot*s/(1 + s^2);
+
+        df4dthetadot = -2*thetadot*c*s/(1+s^2);
+
+        df3dtheta = (c^2 - c*s^2)*((thetadot^2)/2 + g*c)/((1+s^2)^2) - ...
+            g*s*(s/(1+s^2));
+
+        df4dtheta = 2*( -2*s*c*(-u*c - c*s*(thetadot^2)/2 - 2*g*s)/((1 + s^2)^2) ...
+                        + (u*s - (c^2 - s^2)*(thetadot^2)/2 - 2*g*c)/(1 + s^2));
+
+        dfdx = [zeros(2,2), eye(2,2); 0, df3dtheta, 0, df3dthetadot; 0, ...
+                df4dtheta, 0, df4dthetadot ];
+
+        A{idx} = dfdx;
+
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % Gradients of f wrt u
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        df1du = 0;                              % xdot
+        df2du = 0;                               % thetadot
+        df3du = 1/(1 + s^2);                    % xdotdot
+        df4du = -2*c/(1 + s^2);                 % thetadotdot
+
+        dfdu = [df1du, df2du, df3du, df4du]';
+
+        B{idx} = dfdu;
+    end
+
 end

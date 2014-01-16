@@ -25,7 +25,7 @@ for i=1:N
     x = x + dynamics(x,u).*dt;
 end
 
-figure(24)
+figure(24); hold off;
 plot(xtape(1,:),xtape(2,:)); drawnow;
 
 dJdalpha = compute_gradients(xtape,utape,dt);
