@@ -1,9 +1,8 @@
 function cartpole
-
 % Parameters:
 % mc = 10; mp = 1; l = 0.5; g = 9.8;
     mc = 1; mp = 1; l = 1; g = 1;
-    T = 30;
+    T = 15;
     plant_dt = 1e-3;
     display_dt = 0.1;
 
@@ -19,7 +18,7 @@ function cartpole
 
 
     % LQR
-    Q = diag([100, 100, 100, 100])*plant_dt;
+    Q = 100*eye(4,4)*plant_dt;
     R = 10*eye(4,4)*plant_dt; % A little silly since only one dimension gets
                               % passed into the system, but the LQR solution
                               % takes care of this
@@ -34,21 +33,29 @@ function cartpole
 
     % Initial Conditions:  
     target_state = [0, pi, 0, 0]'; % [ x, theta, xdot, thetadot]
-    target_energy = mp*g*l; % Potential energy at pi with no kinetic energy
+                                   % TODO - figure out why I had to
+                                   % do this
+    target_energy = 1.1*mp*g*l; % Potential energy at pi with no kinetic energy
                             % target_state = [0,0,0,0]';
+
+    lqr_on = false;
 
     randn('state',sum(100*clock))
     %   x = [x,\theta,\dot{x},\dot\theta]^T 
     %   (set this to [0;0;0;0] to test true swing-up)
-    % x = target_state +  0.2*randn(4,1);  
-    x = 0.5*randn(4,1); 
-    % x = [0, 0.01*randn(1,1), 0, 0.01*randn(1,1)]'; 
+    % x = target_state +  0.1*randn(4,1);  
+    x = 0.1*randn(4,1);
+    % x(2) = pi/2;
+    % x = [0, 0.5*randn(1,1), 0, 10*randn(1,1)]'; 
     % x = zeros(4,1);
 
 
     % Euler Integration Loop:
     last_display_t = -inf;
+    xtraj = [];
+    etraj = [];
     for t=0:plant_dt:T
+        xtraj = [xtraj, x];
         u = control(x,t);
 
         if (t>last_display_t + display_dt)
@@ -58,7 +65,7 @@ function cartpole
             % Energy calc (good way to verify eqs. of motion)
             T = 0.5*(mc+mp)*x(3)^2 + mp*x(3)*x(4)*l*cos(x(2)) + 0.5*mp*l^2*x(4)^2;
             U = -mp*g*l*cos(x(2));
-            E = T+U
+            E = T+U;
         end
         
         xdot = dynamics(x,u);
@@ -67,23 +74,43 @@ function cartpole
     draw(x,t);
 
 
+    figure; hold on;
+    subplot(2,1,1);
+    scatter(xtraj(1,:), xtraj(3,:), 5, 'k');
+    xlabel('x'); ylabel('xdot');
+    subplot(2,1,2);
+    scatter(xtraj(2,:), xtraj(4,:), 5, 'k');
+    xlabel('theta'); ylabel('thetadot');
+    
+    figure; hold on;
+    scatter( 1:length(etraj), etraj, 5, 'k');
+    title('Energy error');
+    
+
     function u = control(x,t)
-    % u = lqr_control(x,t);
-    % u = energy_control(x,t);
-    % u = -x(1);
-    % u = 0;p
-    % TODO: Fix this so that it properly triggers when angle is
-    % near pi
-        r1 = abs(mod(x(2), 2*pi) - target_state(2)) < 1;
-        r2 = abs(x(4) - target_state(4)) < 1;
+        u = fancy_control(x,t);
+    end
 
-        [r1 r2]
+    function u = fancy_control(x,t)
+        theta = x(2);
+        thetadot = x(4);
 
-        if r1 && r2
+        E = 0.5*thetadot^2 - cos(theta);
+        Eerr = E - target_energy;
+        etraj = [etraj, Eerr];
+        
+        r1 = abs(mod(x(2) - target_state(2), 2*pi)) < .02;
+        r2 = abs(x(4) - target_state(4)) < .05;
+
+        if ~lqr_on && r1
+            lqr_on = true;
+        end
+
+        if lqr_on
             u = lqr_control(x,t);
-            disp('LQR On');
+            % disp('LQR On');
         else
-            u = energy_control(x,t);
+            u = energy_control(x,t, Eerr);
         end
     end
 
@@ -94,20 +121,22 @@ function cartpole
                   % since our R matrix has no coupling 
     end
 
-    function u = energy_control(x,t)
+    function u = energy_control(x,t, Eerr)
+        % global etraj
         theta = x(2);
         thetadot = x(4);
 
         % Gain
-        k = 1;
+        ke = 5;
+        kp = 1;
+        kd = 1;
         
         % Energy shaping control
         % TODO: Fix this to depend on coefficients
-        E = 0.5*thetadot^2 - cos(theta);
-        Eerr = E - target_energy;
-        xddotd = k*thetadot*cos(theta)*Eerr;
 
-        % xdottd = 0;
+        xddotd = ke*thetadot*cos(theta)*Eerr - kp*x(1) - kd*x(3);
+        
+        % xddotd = .05;
         
         % Collocated partial feedback linearization - forces
         % x double dot equal to our desired input force
@@ -163,7 +192,7 @@ function cartpole
         title(['t = ', num2str(t,'%.2f') ' sec']);
         set(gca,'XTick',[],'YTick',[])
 
-        axis image; axis([-10 10 -1.5*l 1.5*l]);
+        axis image; axis([-2.5 2.5 -1.5*l 1.5*l]);
         drawnow;
     end
 
