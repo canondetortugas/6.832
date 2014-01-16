@@ -44,7 +44,7 @@ function cartpole
     %   x = [x,\theta,\dot{x},\dot\theta]^T 
     %   (set this to [0;0;0;0] to test true swing-up)
     % x = target_state +  0.1*randn(4,1);  
-    x = 0.1*randn(4,1);
+    x = 0.01*randn(4,1);
     % x(2) = pi/2;
     % x = [0, 0.5*randn(1,1), 0, 10*randn(1,1)]'; 
     % x = zeros(4,1);
@@ -114,8 +114,10 @@ function cartpole
         end
     end
 
+    % TODO: Properly wrap theta so that this works
     function u = lqr_control(x,t)
         z = x - target_state;
+        z(2) = mod(z(2)+pi, 2*pi)-pi;
         u = -K*z;
         u = u(3); % This should be the only non-zero component
                   % since our R matrix has no coupling 

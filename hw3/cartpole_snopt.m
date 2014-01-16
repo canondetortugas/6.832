@@ -55,7 +55,7 @@ function w = cartpole_snopt()
     % keyboard;
 
     % Simulate the policy with noise
-    control_stdev = 16;
+    control_stdev = 8;
     
     x = [0 0 0 0]';
     z = x;
