@@ -55,7 +55,7 @@ function w = cartpole_snopt()
     % keyboard;
 
     % Simulate the policy with noise
-    control_stdev = 4;
+    control_stdev = 16;
     
     x = [0 0 0 0]';
     z = x;
@@ -68,6 +68,7 @@ function w = cartpole_snopt()
         control = alpha(i) - K{i}*zerr;
         ctraj = [ctraj, control];
         e = randn(1)*control_stdev;                         % Gaussian RV
+        % e = (rand(1)-0.5)*control_stdev;                         % Uniform RV
         x = x + dynamics(x, alpha(i) + e).*dt;
         z = z + dynamics(z, control + e).*dt;
         xtraj = [xtraj, x];
