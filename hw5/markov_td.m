@@ -1,9 +1,14 @@
 function markov_td()
+% g: Instantaneous cost
+% T: Transition matrix
 [T g]=setup();
 gamma=.95;
 
-% Jtrue=;%give true value function
-% vi_plot(Jtrue)
+Jtrue = inv(eye(size(T)) - gamma*T)*g;
+
+
+vi_plot(Jtrue);
+waitforbuttonpress;
 
 N=100000;
 Jtd=zeros(100,1);
@@ -11,6 +16,7 @@ state=ceil(100*rand());
 lambda=0;
 alpha=.1;
 e=zeros(100,1);
+errtraj = [];
 for i=1:N
     if i<2e4
         lambda=.4;
@@ -39,6 +45,8 @@ for i=1:N
     %insert code here that examines how the error
     %in value function depends on iteration number
     % Need to find direct solution to do this so we can compare.
+    err = max(abs(Jtrue - Jtd));
+    errtraj = [errtraj; err];
     
     state=nstate;
     if mod(i,40)==0 %reset after 40 updates
@@ -48,10 +56,15 @@ for i=1:N
 
     if mod(i, 1000)==0
         vi_plot(Jtd)
+        disp(sprintf('Max error: %f\n', err));
     end
     
 end
-vi_plot(Jtd)
+vi_plot(Jtd);
+
+figure;
+plot(1:length(errtraj), errtraj); xlabel('Iteration'); ylabel(['Max ' ...
+                    'error']);
 
 end
 
