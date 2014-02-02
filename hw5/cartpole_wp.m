@@ -19,11 +19,11 @@ mc = 1; mp = 1; l = 0.5; g = 9.8;
 
 T = 10; % time horizon
 dt = 1e-3; % simulation dt
-disp_dt = 0.1; % draw dt
+disp_dt = 0.2; % draw dt
 max_iter = 40; % maximum iterations
 
 alpha = zeros(3,1);  % the parameters
-eta = 0.1; % the (fixed) learning rate
+eta = 0.2; % the (fixed) learning rate
 IC = [0 0.1 0 0]'; % the initial conditions
 
 % re-seed the random no. generator
